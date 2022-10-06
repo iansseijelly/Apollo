@@ -1,4 +1,4 @@
-complexity: 5
+de_morgan: 1
 trials: 20
 input_num: 2
 dummy: 1
