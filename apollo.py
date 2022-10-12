@@ -40,7 +40,6 @@ def generate_input():
     qwq = ""
     for i in range(0, len(symbols)):
         qwq += symbols[i]
-
     return qwq
 
 #This function generates the dummy-added inputs
@@ -89,6 +88,7 @@ def rev_elimination(simple, symbol):
         simple = f"({simple}|{symbol})&({simple}|~({symbol}))"
     return simple
 
+# A test method to make sure your transforms actually work
 def test_transform(input, symbol, func):
     output = func(input, symbol)
     qwq = algebra.parse(input).simplify()
@@ -127,12 +127,14 @@ def main_loop():
     # print(ret_list[0])
     internal_checker(ans_list, ret_list)
 
+    # print out the output
     if config_dict['print']:
         for i in range(len(ret_list)):
             print(f'the {i}th answer is: {ans_list[i]}')
             print(f'the {i}th output is: {ret_list[i]}')
 
     if config_dict['drawing']:
+        # This will cleanup the gen folder before generating new svgs, be careful.
         dir = 'gen'
         for f in os.listdir(dir):
             os.remove(os.path.join(dir, f))
@@ -145,6 +147,17 @@ def main_loop():
 
     return ret_list
 
+# Check if the simplified output is different from the actual input or not, requires manual checking 
+def internal_checker(ans_list, ret_list):
+    assert len(ans_list) == len(ret_list), f"their length doesn't match, with anslength {len(ans_list)}, retlength {len(ret_list)}"
+    for i in range(len(ans_list)):
+        output = ret_list[i]
+        output_simplified = algebra.parse(output).simplify()
+        ans = ans_list[i]
+        if ans != output_simplified:
+            print(f"caution! unmatching simplified output {output_simplified} and answer {ans}")
+
+# A test function for drawing your favorite circuit
 def draw(expr):
     qwq = algebra.parse(expr)
     qaq = qwq.simplify()
@@ -156,15 +169,6 @@ def draw(expr):
     expr_sub = expr_sub.replace("1", "TRUE")
     with logicparse(expr_sub, outlabel="$out$") as d:
         d.save('gen/test_circuit.svg')
-
-def internal_checker(ans_list, ret_list):
-    assert len(ans_list) == len(ret_list), f"their length doesn't match, with anslength {len(ans_list)}, retlength {len(ret_list)}"
-    for i in range(len(ans_list)):
-        output = ret_list[i]
-        output_simplified = algebra.parse(output).simplify()
-        ans = ans_list[i]
-        if ans != output_simplified:
-            print(f"caution! unmatching simplified output {output_simplified} and answer {ans}")
 
 main_loop()
 # test_transform("a&b", "c", rev_elimination)
