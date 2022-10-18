@@ -1,12 +1,12 @@
-import re
-import yaml
-import boolean
+import os
 import random
 from functools import reduce
-import os
 
-import schemdraw 
+import schemdraw
+import yaml
 from schemdraw.parsing import logicparse
+
+import boolean
 
 algebra = boolean.BooleanAlgebra()
 
@@ -152,10 +152,18 @@ def internal_checker(ans_list, ret_list):
     assert len(ans_list) == len(ret_list), f"their length doesn't match, with anslength {len(ans_list)}, retlength {len(ret_list)}"
     for i in range(len(ans_list)):
         output = ret_list[i]
-        output_simplified = algebra.parse(output).simplify()
+        output_simplified = algebra.parse(output).simplify().__str__()
+        output_simp_demorganized = de_morgan_checker(output_simplified)
         ans = ans_list[i]
-        if ans != output_simplified:
+        if ans != output_simplified and ans != output_simp_demorganized:
             print(f"caution! unmatching simplified output {output_simplified} and answer {ans}")
+
+def de_morgan_checker(dumb_input):
+    parsed = algebra.parse(dumb_input)
+    if isinstance(parsed, boolean.NOT):
+        parsed = parsed.demorgan()
+    return parsed.__str__()
+            
 
 # A test function for drawing your favorite circuit
 def draw(expr):
@@ -173,4 +181,4 @@ def draw(expr):
 main_loop()
 # test_transform("a&b", "c", rev_elimination)
 
-# draw("~a|~b")
+# draw("~(~(~a)&(~b))")
