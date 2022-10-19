@@ -1,6 +1,6 @@
 de_morgan: 1
-trials: 3
-input_num: 2
-dummy: 1
+trials: 20
+input_num: 5
+dummy: 3
 drawing: 0
 print: 1

@@ -83,7 +83,7 @@ def rev_absorption(simple, symbol):
 def rev_elimination(simple, symbol):
     rand_j = random.randint(0,1)
     if rand_j:
-        simple = f"({simple}&{symbol})|({simple}&~({symbol}))"
+        simple = f"({simple}&{symbol})|({simple}&(~({symbol})))"
     else:
         simple = f"({simple}|{symbol})&({simple}|~({symbol}))"
     return simple
@@ -109,6 +109,13 @@ def de_morgan(dumb_input):
         qwq = boolean.NOT(qwq)
         return qwq.__str__()
 
+def comp_complex(expr):
+    parsed = algebra.parse(expr)
+    complexity = 0
+    if parsed is not None and not isinstance(parsed, boolean.Symbol):
+        complexity += len(parsed.args) + sum([comp_complex(i.__str__()) for i in parsed.args])
+    return complexity
+    
 def main_loop():
     # This outer loop controls the number of trials
     ans_list = []
@@ -132,6 +139,8 @@ def main_loop():
         for i in range(len(ret_list)):
             print(f'the {i}th answer is: {ans_list[i]}')
             print(f'the {i}th output is: {ret_list[i]}')
+            qwq = comp_complex(ret_list[i])
+            print(f'the {i}th output is complexity is: {qwq}')
 
     if config_dict['drawing']:
         # This will cleanup the gen folder before generating new svgs, be careful.
@@ -156,7 +165,7 @@ def internal_checker(ans_list, ret_list):
         output_simp_demorganized = de_morgan_checker(output_simplified)
         ans = ans_list[i]
         if ans != output_simplified and ans != output_simp_demorganized:
-            print(f"caution! unmatching simplified output {output_simplified} and answer {ans}")
+            print(f"caution! unmatching output {output} and answer {ans} (simplified to {output_simplified} & demorgan conjugate: {output_simp_demorganized})")
 
 def de_morgan_checker(dumb_input):
     parsed = algebra.parse(dumb_input)
@@ -180,5 +189,7 @@ def draw(expr):
 
 main_loop()
 # test_transform("a&b", "c", rev_elimination)
-
-# draw("~(~(~a)&(~b))")
+# comp_complex("~(a|~b)")
+        
+# qwq = algebra.parse("~((~(a&~b))|(~((a&~b)|c)))")
+# print(qwq.simplify())
