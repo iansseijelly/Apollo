@@ -21,7 +21,7 @@ Additionally, apllo adapted the "boolean.py" library and included it as the bool
 
 The generation of Apollo follows the config.yaml file, with the following specification:
 
-* de_morgan: (int) this specifies the number of times de_morgan law is used to complicate the logic. 
+* de_morgan: (1 or 0) this specifies whether a de_morgan law is used to complicate the logic. 
 * trials: (int) this is the number of times Apollo will try to generate the logic expression
 * input_num: (int) this is the true number of inputs to the simpliest expression
 * dummy: (int) this is the number of symbols present in the final expression but can be eliminated

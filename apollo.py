@@ -102,12 +102,13 @@ def test_transform(input, symbol, func):
     print(qaq)
 
 def de_morgan(dumb_input):
-    for _ in range(config_dict['de_morgan']):
+    if config_dict['de_morgan']:
         parsed = algebra.parse(dumb_input)
         lst = [boolean.NOT(i) for i in parsed.args]
         qwq = reduce(parsed.dual, lst)
         qwq = boolean.NOT(qwq)
-        return qwq.__str__()
+        dumb_input = qwq.__str__()
+    return dumb_input
 
 def comp_complex(expr):
     parsed = algebra.parse(expr)
