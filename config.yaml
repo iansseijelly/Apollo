@@ -5,4 +5,6 @@ dummy: 1
 drawing: 1
 print: 1
 diff_bal: 1
-output_num: 5
+output_num: 10
+up: 2
+low: 1

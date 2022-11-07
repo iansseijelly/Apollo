@@ -143,7 +143,6 @@ def main_loop(args):
             ans_list.append(simply_input)
     # print(ret_list)
     # print(ret_list[0])
-    # internal_checker(ans_list, ret_list)
 
     # A list storing all output blobs
     blob_list = []
@@ -158,8 +157,10 @@ def main_loop(args):
     # difficulty balancing zzz happening here!
     iterations = min(config_dict['output_num'], len(ret_list))
     data = np.array(complexity_list)
-    upper_limit = np.median(data) + 1.5 * np.std(data)
-    lower_limit = np.median(data) + 0.5 * np.std(data)
+    up = config_dict['up']
+    low = config_dict['low']
+    upper_limit = np.median(data) + up * np.std(data)
+    lower_limit = np.median(data) + low * np.std(data)
     judge = lambda x: x <= upper_limit and x >= lower_limit
     for _ in range(iterations):
         # emulated do while for picking an appropraite blob
@@ -171,6 +172,11 @@ def main_loop(args):
         # blob_list.remove(blob)
         blob = randomzoomies(blob, judge, upper_limit)
         balanced_ret_list.append(blob)
+
+    # invoking the internal checker here
+    for i in range(len(balanced_ret_list)):
+        bal_blob = balanced_ret_list[i]
+        internal_checker(bal_blob.output, bal_blob.answer)
 
     # write into a csv for profiling
     header = ['output', 'answer', 'complexity']
@@ -205,24 +211,26 @@ def main_loop(args):
         for f in os.listdir(dir):
             os.remove(os.path.join(dir, f))
         for i in range(len(balanced_ret_list)):
-            expr = balanced_ret_list[i].output
-            expr_sub = expr.replace("0", "FALSE")
-            expr_sub = expr_sub.replace("1", "TRUE")
-            with logicparse(expr_sub, gateH = 1.1, outlabel="output") as d:
-                d.save(f'gen/circuit{i}.svg')
+            try:
+                expr = balanced_ret_list[i].output
+                expr = algebra.parse(expr).__str__()
+                expr_sub = expr.replace("0", "FALSE")
+                expr_sub = expr_sub.replace("1", "TRUE")
+                with logicparse(expr_sub, gateH = 1.1, outlabel="output") as d:
+                    d.save(f'gen/circuit{i}.svg')
+            except:
+                pass
 
     return ret_list, ans_list
 
 # Check if the simplified output is different from the actual input or not, requires manual checking 
-def internal_checker(ans_list, ret_list):
-    assert len(ans_list) == len(ret_list), f"their length doesn't match, with anslength {len(ans_list)}, retlength {len(ret_list)}"
-    for i in range(len(ans_list)):
-        output = ret_list[i]
-        output_simplified = algebra.parse(output).simplify().__str__()
-        output_simp_demorganized = de_morgan_checker(output_simplified)
-        ans = ans_list[i]
-        if ans != output_simplified and ans != output_simp_demorganized:
-            print(f"caution! unmatching output {output} and answer {ans} (simplified to {output_simplified} & demorgan conjugate: {output_simp_demorganized})")
+def internal_checker(output, answer):
+    output = output
+    output_simplified = algebra.parse(output).simplify().__str__()
+    output_simp_demorganized = de_morgan_checker(output_simplified)
+    ans = answer
+    if ans != output_simplified and ans != output_simp_demorganized:
+        print(f"caution! unmatching output {output} and answer {ans} (simplified to {output_simplified} & demorgan conjugate: {output_simp_demorganized})")
 
 def de_morgan_checker(dumb_input):
     parsed = algebra.parse(dumb_input)
@@ -245,26 +253,27 @@ def draw(expr):
         d.save('gen/test_circuit.svg')
 
 def initiate_trans():
-    double_negationer = Transform('double_negation', lambda x: f'~(~{x})')
+    double_negationer = Transform('double_negation', lambda x: f'~(~({x}))')
     negative_absorptioner = Transform('negative_absorption', lambda x: neg_abs(x))
     idempotencer = Transform('idempotence', lambda x: idempotence(x))
     identitier = Transform('identity', lambda x: identity(x))
     global trans_list
-    trans_list = [double_negationer, negative_absorptioner, idempotencer, identitier]
+    trans_list = [negative_absorptioner, idempotencer, identitier]
+    # trans_list = [negative_absorptioner]
 
 def identity(expr):
     rand_j = random.randint(0,1)
     if rand_j:
-        return f"{expr}&{algebra.TRUE}"
+        return f"({expr})&({algebra.TRUE})"
     else:
-        return f"{expr}|{algebra.FALSE}"
+        return f"({expr})|({algebra.FALSE})"
 
 def idempotence(expr):
     rand_j = random.randint(0,1)
     if rand_j:
-        return f"{expr}&{expr}"
+        return f"({expr})&({expr})"
     else:
-        return f"{expr}|{expr}"
+        return f"({expr})|({expr})"
 
 def neg_abs(expr):
     parsed = algebra.parse(expr)
@@ -297,11 +306,9 @@ def neg_abs(expr):
         return expr
 
 def randomzoomies(blob, judge, upper_limit):
-    print(blob.output)
     while not judge(blob.complexity):
         blob_copy = copy.deepcopy(blob)
         blob.output = randooooom(blob.output)
-        print(f'after randooom {blob.output}')
         blob.complexity = comp_complex(blob.output)
         if blob.complexity > upper_limit:
             blob = blob_copy
@@ -317,8 +324,10 @@ def randooooom(expr):
     else:
         rand_i = random.randint(0,1)
         if rand_i:
+            # print("let's do it here")
             return complicator_helper(expr)
         else:
+            # print("going down the stack")
             # print(f'the random_k part')
             # print(f'{parsed.pretty()}')
             if len(parsed.args) == 0:
@@ -334,8 +343,6 @@ def complicator_helper(expr):
     global trans_list
     rand_t = random.randint(0, len(trans_list) - 1)
     transformer = trans_list[rand_t]
-    print(rand_t)
-    print(f'complicator helper output: {transformer.trans_func(expr)}')
     return transformer.trans_func(expr)
 
 
