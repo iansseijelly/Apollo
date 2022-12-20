@@ -1,18 +1,19 @@
+import copy
+import csv
 import os
 import random
 from functools import reduce
 
+import numpy as np
+import pandas as pd
+import schemdraw
 import yaml
-import csv
-
+# import schemdraw.elements as elm
+# import schemdraw.logic.logic as lg
 from schemdraw.parsing import logicparse
 
 import boolean
-import hermes
-
-import numpy as np
-import pandas as pd
-import copy
+# import hermes
 
 algebra = boolean.BooleanAlgebra()
 trans_list = []
@@ -155,7 +156,7 @@ def main_loop(args):
         complexity_list.append(new_blob.complexity)
 
     # difficulty balancing zzz happening here!
-    iterations = min(config_dict['output_num'], len(ret_list))
+    iterations = min(int(config_dict['output_num'] * 1.5), len(ret_list))
     data = np.array(complexity_list)
     up = config_dict['up']
     low = config_dict['low']
@@ -174,9 +175,12 @@ def main_loop(args):
         balanced_ret_list.append(blob)
 
     # invoking the internal checker here
+    new_list = []
     for i in range(len(balanced_ret_list)):
         bal_blob = balanced_ret_list[i]
-        internal_checker(bal_blob.output, bal_blob.answer)
+        if internal_checker(bal_blob.output, bal_blob.answer):
+            new_list.append(bal_blob)
+    balanced_ret_list = new_list
 
     # write into a csv for profiling
     header = ['output', 'answer', 'complexity']
@@ -187,6 +191,18 @@ def main_loop(args):
             bloby = blob_list[i]
             data = [bloby.output, bloby.answer, bloby.complexity]
             writer.writerow(data)
+    
+    # draw out the output
+    if config_dict['drawing']:
+        # This will cleanup the gen folder before generating new svgs, be careful.
+        dir = 'gen'
+        for f in os.listdir(dir):
+            os.remove(os.path.join(dir, f))
+        confirmed_balanced_ret_list = []
+        for i in range(len(balanced_ret_list)):
+            expr = balanced_ret_list[i].output
+            if netlist(expr, i):
+                confirmed_balanced_ret_list.append(balanced_ret_list[i])
 
     # print out the output
     if config_dict['print']:
@@ -198,30 +214,13 @@ def main_loop(args):
             print(f'the {i}th output is complexity is: {qwq.complexity}')
         print('----------------------------')
         print(f'after balancing: ')
-        for i in range(len(balanced_ret_list)):
+        for i in range(len(confirmed_balanced_ret_list)):
             qwq = balanced_ret_list[i]
             print(f'the {i}th answer is: {qwq.answer}')
             print(f'the {i}th output is: {qwq.output}')
             print(f'the {i}th output is complexity is: {qwq.complexity}')
-    
-    # draw out the output
-    if config_dict['drawing']:
-        # This will cleanup the gen folder before generating new svgs, be careful.
-        dir = 'gen'
-        for f in os.listdir(dir):
-            os.remove(os.path.join(dir, f))
-        for i in range(len(balanced_ret_list)):
-            try:
-                expr = balanced_ret_list[i].output
-                expr = algebra.parse(expr).__str__()
-                expr_sub = expr.replace("0", "FALSE")
-                expr_sub = expr_sub.replace("1", "TRUE")
-                with logicparse(expr_sub, gateH = 1.1, outlabel="output") as d:
-                    d.save(f'gen/circuit{i}.svg')
-            except:
-                pass
-
-    return ret_list, ans_list
+    print(confirmed_balanced_ret_list[0])
+    return confirmed_balanced_ret_list
 
 # Check if the simplified output is different from the actual input or not, requires manual checking 
 def internal_checker(output, answer):
@@ -231,26 +230,14 @@ def internal_checker(output, answer):
     ans = answer
     if ans != output_simplified and ans != output_simp_demorganized:
         print(f"caution! unmatching output {output} and answer {ans} (simplified to {output_simplified} & demorgan conjugate: {output_simp_demorganized})")
+        return False
+    return True
 
 def de_morgan_checker(dumb_input):
     parsed = algebra.parse(dumb_input)
     if isinstance(parsed, boolean.NOT):
         parsed = parsed.demorgan()
     return parsed.__str__()
-            
-
-# A test function for drawing your favorite circuit
-def draw(expr):
-    qwq = algebra.parse(expr)
-    qaq = qwq.simplify()
-    print(qwq)
-    print(qaq)
-    print(qwq.pretty())
-    print(qaq.pretty())
-    expr_sub = expr.replace("0", "FALSE")
-    expr_sub = expr_sub.replace("1", "TRUE")
-    with logicparse(expr_sub, outlabel="$out$") as d:
-        d.save('gen/test_circuit.svg')
 
 def initiate_trans():
     double_negationer = Transform('double_negation', lambda x: f'~(~({x}))')
@@ -260,6 +247,8 @@ def initiate_trans():
     global trans_list
     trans_list = [negative_absorptioner, idempotencer, identitier]
     # trans_list = [negative_absorptioner]
+
+# some more transitions here
 
 def identity(expr):
     rand_j = random.randint(0,1)
@@ -345,6 +334,44 @@ def complicator_helper(expr):
     transformer = trans_list[rand_t]
     return transformer.trans_func(expr)
 
+def netlist(expr, i):
+    if config_dict["mode"] == "automatic":
+        # print("bingo")
+
+        expr = algebra.parse(expr).__str__()
+        # expr = draw_preprocessing(expr)
+        try:
+            expr_sub = expr.replace("0", "FALSE")
+            expr_sub = expr_sub.replace("1", "TRUE")
+            with logicparse(expr_sub, gateH = 1.1, outlabel="output") as d:
+                d.save(f'gen/circuit{i}.svg')
+            return 1
+        except:
+            print("failed")
+            return 0
+
+
+def draw_preprocessing(expr):
+    print(expr)
+    new_expr = ""
+    i = 0
+    print((len(expr) - 3))
+    while i < (len(expr) - 3):
+        print(f"{expr[i]} is the current under investigation")
+        if expr[i+1] == expr[i+3] and (expr[i+1] == '&' or expr[i+1] == '|'):
+            new_expr = new_expr + "(" + expr[i:i+3] + ")"
+            i += 3
+
+        # elif expr[i] == expr[i+2] and (expr[i] == '&' or expr[i] == '|'):
+        #     new_expr = new_expr + expr[i] + "(" + expr[i+1:i+4] + ")"
+        #     i += 4
+
+        else:
+            new_expr += expr[i]
+            i += 1
+    new_expr = new_expr + expr[i+1:len(expr)]
+    print(new_expr)
+    return new_expr
 
 class Blob:
     def __init__(self, output, answer, complexity):
@@ -356,3 +383,6 @@ class Transform:
     def __init__(self, name, trans_func):
         self.name = name
         self.trans_func = trans_func
+
+# draw_preprocessing("A&B&C")
+# # netlist("(A&B)&(C&D)", 0)
