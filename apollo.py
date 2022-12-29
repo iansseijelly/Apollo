@@ -8,12 +8,15 @@ import numpy as np
 import pandas as pd
 import schemdraw
 import yaml
+import traceback
 # import schemdraw.elements as elm
 # import schemdraw.logic.logic as lg
 from schemdraw.parsing import logicparse
 
 import boolean
 # import hermes
+
+EDA = True # change to False if not doing EDA 
 
 algebra = boolean.BooleanAlgebra()
 trans_list = []
@@ -30,13 +33,13 @@ symbols_pool = ['a','b','c','d','e','f','g','h','i','j','k','l','m','n','o','p',
 def generate_input(args):
     symbols = symbols_pool[:args['input_num']]
 
-    #randomly negating the valid inputs in this layer
+    # randomly negating the valid inputs in this layer
     for i in range(len(symbols)):
         rand_i = random.randint(0,1)
         if rand_i:
             symbols[i] = f"~{symbols[i]}"
     
-    #randomly connecting the valid inputs in this layer
+    # randomly connecting the valid inputs in this layer
     for i in range(1,len(symbols)):
         rand_i = random.randint(0,1)
         if rand_i:
@@ -44,13 +47,10 @@ def generate_input(args):
         else: 
             symbols[i] = f"|{symbols[i]}"
 
-    #put them all up into a valid base expression!
-    qwq = ""
-    for i in range(0, len(symbols)):
-        qwq += symbols[i]
-    return qwq
+    # put them all up into a valid base expression!
+    return "".join(symbols)
 
-#This function generates the dummy-added inputs
+# This function generates the dummy-added inputs
 def add_dummy(simple, args):
     candidates = [rev_annihilator, rev_complementation, rev_absorption, rev_elimination]
     symbols = symbols_pool[args['input_num']:args['dummy']+ args['input_num']]
@@ -100,8 +100,10 @@ def rev_elimination(simple, symbol):
 def test_transform(input, symbol, func):
     output = func(input, symbol)
     qwq = algebra.parse(input).simplify()
+    # qwq = boolean.DualBase.simplify(qwq)
     print(output)
     qaq = algebra.parse(output).simplify()
+    # qaq = boolean.DualBase.simplify(qaq)
     if qwq == qaq:
         print("the two are equal!")
     else:
@@ -127,7 +129,7 @@ def comp_complex(expr):
         complexity += len(parsed.args) + sum([comp_complex(i.__str__()) for i in parsed.args])
     return complexity
     
-def main_loop(args):
+def main_loop(args, output_file=''):
     initiate_trans()
     # This outer loop controls the number of trials
     ans_list = []
@@ -184,7 +186,9 @@ def main_loop(args):
 
     # write into a csv for profiling
     header = ['output', 'answer', 'complexity']
-    with open('data.csv', 'w', encoding='UTF8') as f:
+    if not output_file:
+        output_file = 'data.csv'
+    with open(output_file, 'w', encoding='UTF8') as f:
         writer = csv.writer(f)
         writer.writerow(header)
         for i in range(len(blob_list)):
@@ -226,6 +230,11 @@ def main_loop(args):
 def internal_checker(output, answer):
     output = output
     output_simplified = algebra.parse(output).simplify().__str__()
+    # print('-------------************-------------')
+    # print(f'TYPE = {type(output_simplified)}')
+    # print('-------------************-------------')
+    # output_simplified = str(boolean.DualBase.simplify(output_simplified))
+    # .simplify().__str__()
     output_simp_demorganized = de_morgan_checker(output_simplified)
     ans = answer
     if ans != output_simplified and ans != output_simp_demorganized:
@@ -240,7 +249,7 @@ def de_morgan_checker(dumb_input):
     return parsed.__str__()
 
 def initiate_trans():
-    double_negationer = Transform('double_negation', lambda x: f'~(~({x}))')
+    double_negationer = Transform('double_negation', lambda x: f'~(~({x}))' if len(x) > 1 else f'~(~{x})')
     negative_absorptioner = Transform('negative_absorption', lambda x: neg_abs(x))
     idempotencer = Transform('idempotence', lambda x: idempotence(x))
     identitier = Transform('identity', lambda x: identity(x))
@@ -348,8 +357,8 @@ def netlist(expr, i):
             return 1
         except:
             print("failed")
+            print(traceback.format_exc())
             return 0
-
 
 def draw_preprocessing(expr):
     print(expr)
@@ -372,6 +381,25 @@ def draw_preprocessing(expr):
     new_expr = new_expr + expr[i+1:len(expr)]
     print(new_expr)
     return new_expr
+
+def eda_wrapper(args_dict):
+    # global config_dict
+    # config_dict = args_dict
+    for key in args_dict:
+        config_dict[key] = args_dict[key]
+
+    dummy = args_dict['dummy']
+    input_num = args_dict['input_num']
+    # config_dict['dummy'] = dummy
+    # config_dict['input_num'] = input_num
+    print('---------------------------')
+    print(f'DUMMY = {dummy}, INPUT = {input_num}')
+    if dummy < 10:
+        dummy = f'0{dummy}'
+    if input_num < 10:
+        input_num = f'0{input_num}'
+    output_file = f'D{dummy}N{input_num}.csv'
+    main_loop(config_dict, output_file)
 
 class Blob:
     def __init__(self, output, answer, complexity):
